@@ -8,7 +8,7 @@ $user_id = $_SESSION['user_id'];
 
 // Função para obter os posts do usuário
 function get_user_posts($conn, $user_id) {
-    $stmt = $conn->prepare("SELECT * FROM posts WHERE user_id = ?"); // Substitua `user_id` pela coluna correspondente
+    $stmt = $conn->prepare("SELECT * FROM posts WHERE user_id = ? ORDER BY posts.created_at DESC"); // Substitua `user_id` pela coluna correspondente
     $stmt->execute([$user_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }

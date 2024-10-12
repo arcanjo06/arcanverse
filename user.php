@@ -24,17 +24,23 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arcanverse - Página do Usuário</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="frontend/css/style.css"> <!-- Caminho para o CSS -->
 </head>
 <body>
-    <button id="logout-button">
-        <a href="backend/logout.php">Sair</a>
-    </button>
+    <header>
+        <img class="logo" src="images/1.png" alt="logo" width="70px" height="70px">
+        <h1 style="font-size:3vw">ARCANVERSE</h1>
+        <button id="feed-button" class="router-btn">Ver Feed</button>
+        <button id="logout-button">
+            <a href="backend/logout.php">Sair</a>
+        </button> 
+    </header>
+    
 
     <!-- Seção de Boas-vindas -->
     <section id="welcome-section">
         <h2>Bem-vindo, <span id="username"><?php echo htmlspecialchars($_SESSION['username']); ?></span>!</h2>
-        <button id="feed-button">Ver Feed</button>
     </section>
 
     <!-- Formulário para criar um novo post -->
@@ -48,16 +54,33 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
     </section>
 
     <!-- Seção de Posts do Usuário -->
-    <section id="user-posts">
+    <section id="user-posts" style="padding:20px">
         <h3>Seus Posts:</h3>
         <ul id="posts-list">
             <?php if (!empty($userPosts)): ?>
                 <?php foreach ($userPosts as $post):?>
+                    <?php
+                        $userLiked = false;
+                        $sql = "SELECT * FROM likes WHERE user_id = :user_id AND post_id = :post_id";
+                        $stmt = $conn->prepare($sql);
+                        $stmt->execute(['user_id' => $_SESSION['user_id'], 'post_id' => $post['ID']]);
+    
+                        if ($stmt->rowCount() > 0) {
+                            $userLiked = true;
+                        }
+
+                            // Contagem de likes para este post
+                        $sql = "SELECT COUNT(*) AS like_count FROM likes WHERE post_id = :post_id";
+                        $stmt = $conn->prepare($sql);
+                        $stmt->execute(['post_id' => $post['ID']]);
+                        $likeCount = $stmt->fetch(PDO::FETCH_ASSOC)['like_count'];
+                        ?>
                     <li class="post-container">
                         <div class="post-header">
                         <?php
                         $userId = $post['user_id'];
                         $userName = getUserNameById($userId);
+                        
                         ?>
                             <small style="color: gray;">
                                 Postado em: <?php echo date('d/m/Y H:i', strtotime($post['created_at'])); ?>
@@ -66,8 +89,15 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
                         </div>
                         <div class="post-content">
                             <p><?php echo htmlspecialchars($post['content']); ?></p>
+                            <div class="post-actions">
+                                <button class="like-button" data-post-id="<?php echo $post['ID']; ?>">
+                                <i class="fas fa-heart <?php echo $userLiked ? 'liked' : ''; ?>"></i>
+                                <span class="like-count"><?php echo $likeCount; ?></span> <!-- Exibe a contagem de likes -->
+                                </button>
+                            </div>
                             <span id="delete-post-<?php echo $post['ID']; ?>" class="delete-post" data-post-id="<?php echo $post['ID']; ?>" style="color: red; cursor: pointer;">Excluir</span>
                         </div>
+                        
                     </li>
                 <?php endforeach; ?>
             <?php else: ?>
@@ -93,6 +123,7 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
                 alert("Por favor, escreva algo no post.");
                 return;
             }
+    
 
             const response = await fetch('backend/create_post.php', {
                 method: 'POST',
@@ -111,6 +142,7 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
                 console.error('Erro ao criar o post:', result.error);
             }
         });
+
 
         async function deletePost(postId) {
             try {
@@ -151,6 +183,41 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
                 }
             });
         });
+
+        document.querySelectorAll('.like-button').forEach(button => {
+            button.addEventListener('click', async function() {
+                console.log('Adicionando evento ao botão', button);
+                const postId = this.getAttribute('data-post-id');
+                const heartIcon = this.querySelector('.fas.fa-heart');
+                const likeCountSpan = this.querySelector('.like-count');
+
+            try {
+                const response = await fetch('backend/likes.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                 },
+                    body: JSON.stringify({ post_id: postId }),
+                });
+
+            const result = await response.json();
+            console.log(result);
+
+            if (response.ok) {
+                if (result.message === 'Like adicionado.') {
+                    heartIcon.classList.add('liked'); // Adiciona classe liked
+                } else if (result.message === 'Like removido.') {
+                    heartIcon.classList.remove('liked'); // Remove classe liked
+                }
+                likeCountSpan.textContent = result.like_count; // Atualiza a contagem de likes
+            } else {
+                console.error('Erro ao curtir o post:', result.error);
+            }
+        } catch (error) {
+            console.error('Erro na requisição:', error);
+        }
+    });
+});
 
     </script>
 </body>
