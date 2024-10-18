@@ -49,7 +49,7 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
         <form id="post-form">
             <textarea name="content" rows="4" required placeholder="Digite seu post aqui..."></textarea>
             <br>
-            <button type="submit" name="new_post">Criar Post</button>
+            <button class="button" type="submit" name="new_post">Criar Post</button>
         </form>
     </section>
 
@@ -74,6 +74,11 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
                         $stmt = $conn->prepare($sql);
                         $stmt->execute(['post_id' => $post['ID']]);
                         $likeCount = $stmt->fetch(PDO::FETCH_ASSOC)['like_count'];
+
+                        $sql = "SELECT COUNT(*) AS comment_count FROM comments WHERE post_id = :post_id";
+                        $stmt = $conn->prepare($sql);
+                        $stmt->execute(['post_id' => $post['ID']]);
+                        $commentCount = $stmt->fetch(PDO::FETCH_ASSOC)['comment_count'];
                         ?>
                     <li class="post-container">
                         <div class="post-header">
@@ -90,9 +95,13 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
                         <div class="post-content">
                             <p><?php echo htmlspecialchars($post['content']); ?></p>
                             <div class="post-actions">
-                                <button class="like-button" data-post-id="<?php echo $post['ID']; ?>">
-                                <i class="fas fa-heart <?php echo $userLiked ? 'liked' : ''; ?>"></i>
-                                <span class="like-count"><?php echo $likeCount; ?></span> <!-- Exibe a contagem de likes -->
+                                <button class="like-button" data-post-id="<?php echo $post_id; ?>">
+                                    <i class="fas fa-heart <?php echo $userLiked ? 'liked' : ''; ?>"></i>
+                                    <span class="like-count"><?php echo $likeCount; ?></span> <!-- Exibe a contagem de likes -->
+                                </button>
+                                <button class="comment-button"  data-post-id="<?php echo $post['ID']; ?>">
+                                    <i class="fa fa-comment"></i>
+                                    <span class="like-count"><?php echo $commentCount; ?></span>
                                 </button>
                             </div>
                             <span id="delete-post-<?php echo $post['ID']; ?>" class="delete-post" data-post-id="<?php echo $post['ID']; ?>" style="color: red; cursor: pointer;">Excluir</span>
@@ -106,119 +115,58 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
         </ul>
     </section>
 
-    <script src="frontend/js/scripts.js"></script> <!-- Caminho para o JS -->
-
     <script>
-        // Redirecionando para o feed ao clicar no botão
         document.getElementById('feed-button').addEventListener('click', () => {
             window.location.href = 'feed.php'; // Caminho para a página do feed
         });
 
-        document.getElementById('post-form').addEventListener('submit', async (event) => {
-            event.preventDefault(); // Evita o comportamento padrão do formulário
-
-            const content = document.querySelector('textarea[name="content"]').value; // Captura o valor do textarea
-
-            if (!content.trim()) { // Verifica se o conteúdo não está vazio
-                alert("Por favor, escreva algo no post.");
-                return;
+        document.querySelectorAll('.delete-post').forEach(span => {
+            span.addEventListener('click', function() {
+            const postId = this.getAttribute('data-post-id'); // Captura o ID do post
+            console.log('ID do Post:', postId); // Para verificar se está capturando corretamente
+            if (postId) { // Verifica se postId não é null ou undefined
+                if (confirm('Tem certeza que deseja excluir este post?')) {
+                    deletePost(postId); // Chama a função de deletar
+                }
+            } else {
+                console.error('ID do post não encontrado.'); // Mensagem de erro
             }
-    
+        });
+    });
 
-            const response = await fetch('backend/create_post.php', {
+    async function deletePost(postId) {
+        try {
+            const response = await fetch('backend/delete_post.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ content }), // Envia o conteúdo como JSON
+                body: JSON.stringify({ postId }), // Envia o ID do post
             });
-
-            const result = await response.json(); // Espera a resposta como JSON
-
-            if (response.ok) {
-                console.log('Post criado com sucesso:', result);
-                window.location.reload(); // Recarrega a página
-            } else {
-                console.error('Erro ao criar o post:', result.error);
-            }
-        });
-
-
-        async function deletePost(postId) {
-            try {
-                const response = await fetch('backend/delete_post.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ postId }), // Envia o ID do post
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    console.log('Post excluído com sucesso:', result);
-                    window.location.reload(); // Recarrega a página após excluir o post
-                } else {
-                    console.error('Erro ao excluir o post:', result.error);
-                    alert(result.error); // Mostra o erro ao usuário
-                }
-            } catch (error) {
-                console.error('Erro na requisição:', error);
-                alert('Houve um problema ao tentar excluir o post. Tente novamente mais tarde.');
-            }
-        }
-
-        // Adiciona evento de exclusão para cada texto "(Excluir)"
-        document.querySelectorAll('.delete-post').forEach(span => {
-            span.addEventListener('click', function() {
-                const postId = this.getAttribute('data-post-id'); // Captura o ID do post
-                console.log('ID do Post:', postId); // Para verificar se está capturando corretamente
-                if (postId) { // Verifica se postId não é null ou undefined
-                    if (confirm('Tem certeza que deseja excluir este post?')) {
-                        deletePost(postId); // Chama a função de deletar
-                    }
-                } else {
-                    console.error('ID do post não encontrado.'); // Mensagem de erro
-                }
-            });
-        });
-
-        document.querySelectorAll('.like-button').forEach(button => {
-            button.addEventListener('click', async function() {
-                console.log('Adicionando evento ao botão', button);
-                const postId = this.getAttribute('data-post-id');
-                const heartIcon = this.querySelector('.fas.fa-heart');
-                const likeCountSpan = this.querySelector('.like-count');
-
-            try {
-                const response = await fetch('backend/likes.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                 },
-                    body: JSON.stringify({ post_id: postId }),
-                });
 
             const result = await response.json();
-            console.log(result);
 
             if (response.ok) {
-                if (result.message === 'Like adicionado.') {
-                    heartIcon.classList.add('liked'); // Adiciona classe liked
-                } else if (result.message === 'Like removido.') {
-                    heartIcon.classList.remove('liked'); // Remove classe liked
-                }
-                likeCountSpan.textContent = result.like_count; // Atualiza a contagem de likes
+                console.log('Post excluído com sucesso:', result);
+                window.location.reload(); // Recarrega a página após excluir o post
             } else {
-                console.error('Erro ao curtir o post:', result.error);
+                console.error('Erro ao excluir o post:', result.error);
+                alert(result.error); // Mostra o erro ao usuário
             }
         } catch (error) {
             console.error('Erro na requisição:', error);
+            alert('Houve um problema ao tentar excluir o post. Tente novamente mais tarde.');
         }
-    });
-});
+    }
 
-    </script>
+    document.querySelectorAll('.comment-button').forEach(button => {
+  button.addEventListener('click', function() {
+    const postId = this.getAttribute('data-post-id');
+    console.log(postId);
+    window.location.href = 'post.php?post_id=' + postId; // redireciona para a página post.php com os parâmetros
+  });
+});
+    </script> <!-- Caminho para o JS -->
+    <script src="./frontend/js/scripts.js"></script>
 </body>
 </html>

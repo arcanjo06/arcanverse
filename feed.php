@@ -43,11 +43,11 @@ require 'backend/get_all_posts.php'; // Certifique-se de ter essa função imple
         <form id="post-form">
             <textarea name="content" rows="4" required placeholder="Digite seu post aqui..."></textarea>
             <br>
-            <button type="submit" name="new_post">Criar Post</button>
+            <button class="button" type="submit" name="new_post">Criar Post</button>
         </form>
     </section>
     <!-- Seção de Feed de Posts -->
-    <section id="post-feed" style="text-align: center;">
+    <section id="post-feed">
    
     <ul id="post-list" style="display: inline-block; text-align: left;">
         <?php if (!empty($posts)): ?>
@@ -68,12 +68,17 @@ require 'backend/get_all_posts.php'; // Certifique-se de ter essa função imple
     $stmt = $conn->prepare($sql);
     $stmt->execute(['post_id' => $post['ID']]);
     $likeCount = $stmt->fetch(PDO::FETCH_ASSOC)['like_count'];
+
+    $sql = "SELECT COUNT(*) AS comment_count FROM comments WHERE post_id = :post_id";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute(['post_id' => $post['ID']]);
+    $commentCount = $stmt->fetch(PDO::FETCH_ASSOC)['comment_count'];
     ?>
 
         <li class="post-container">
             <div class="post-header">
                 <small style="color: gray;">Postado em: <?php echo $post['created_at']; ?></small>
-                <small style="color: gray;">por: <?php echo $post['username']; ?></small>
+                <small style="color: black; font-size:0.9rem;">por: <?php echo $post['username']; ?></small>
             </div>
             <div class="post-content">
              <p><?php echo htmlspecialchars($post['content']); ?></p>
@@ -82,6 +87,10 @@ require 'backend/get_all_posts.php'; // Certifique-se de ter essa função imple
                 <button class="like-button" data-post-id="<?php echo $post['ID']; ?>">
                     <i class="fas fa-heart <?php echo $userLiked ? 'liked' : ''; ?>"></i>
                     <span class="like-count"><?php echo $likeCount; ?></span> <!-- Exibe a contagem de likes -->
+                </button>
+                <button class="comment-button" data-post-id="<?php echo $post['ID']; ?>">
+                    <i class="fa fa-comment"></i>
+                    <span class="like-count"><?php echo $commentCount; ?></span>
                 </button>
             </div>
         </li>
@@ -92,75 +101,18 @@ require 'backend/get_all_posts.php'; // Certifique-se de ter essa função imple
     </ul>
 </section>
 
-    <script src="frontend/js/scripts.js"></script> <!-- Caminho para o JS -->
-
-    <script>
-        // Redirecionando para a user page ao clicar no botão
-        document.getElementById('user-button').addEventListener('click', () => {
-            window.location.href = 'user.php'; // Caminho para a página do feed
+    <script> 
+    document.getElementById('user-button').addEventListener('click', () => {
+            window.location.href = './user.php'; // Caminho para a página do feed
         });
-           
-        document.querySelectorAll('.like-button').forEach(button => {
-    button.addEventListener('click', async function() {
-        const postId = this.getAttribute('data-post-id');
-        const heartIcon = this.querySelector('.fas.fa-heart');
-        const likeCountSpan = this.querySelector('.like-count');
-
-        try {
-            const response = await fetch('backend/likes.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ post_id: postId }),
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
-                if (result.message === 'Like adicionado.') {
-                    heartIcon.classList.add('liked'); // Adiciona classe liked
-                } else if (result.message === 'Like removido.') {
-                    heartIcon.classList.remove('liked'); // Remove classe liked
-                }
-                likeCountSpan.textContent = result.like_count; // Atualiza a contagem de likes
-            } else {
-                console.error('Erro ao curtir o post:', result.error);
-            }
-        } catch (error) {
-            console.error('Erro na requisição:', error);
-        }
-    });
+        document.querySelectorAll('.comment-button').forEach(button => {
+  button.addEventListener('click', function() {
+    const postId = this.getAttribute('data-post-id');
+    console.log(postId);
+    window.location.href = 'post.php?post_id=' + postId; // redireciona para a página post.php com os parâmetros
+  });
 });
-            
-        
-        document.getElementById('post-form').addEventListener('submit', async (event) => {
-            event.preventDefault(); // Evita o comportamento padrão do formulário
-
-            const content = document.querySelector('textarea[name="content"]').value; // Captura o valor do textarea
-
-            if (!content.trim()) { // Verifica se o conteúdo não está vazio
-                alert("Por favor, escreva algo no post.");
-                return;
-            }
-
-            const response = await fetch('backend/create_post.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ content }), // Envia o conteúdo como JSON
-            });
-
-            const result = await response.json(); // Espera a resposta como JSON
-
-            if (response.ok) {
-                console.log('Post criado com sucesso:', result);
-                window.location.reload(); // Recarrega a página
-            } else {
-                console.error('Erro ao criar o post:', result.error);
-            }
-        });
-    </script>
+        </script>
+    <script src="./frontend/js/scripts.js"></script> <!-- Caminho para o JS -->
 </body>
 </html>
