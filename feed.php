@@ -31,8 +31,23 @@ require 'backend/get_all_posts.php'; // Certifique-se de ter essa função imple
     <header>
         <img class="logo" src="images/1.png" alt="logo" width="70px" height="70px">
         <h1 style="font-size:3vw">ARCANVERSE</h1>
+        <div class="header-right">
+        <div class="notification">
+                <button id="notification-button">
+                    <i class="fas fa-bell"></i>
+                    <span id="notificationCount" class="badge"></span>
+                </button>
+            </div>
         <button id="user-button" class="router-btn">Meu Perfil</button>
+        </div>
     </header>
+
+    <div id="notification-box" class="notification-box">
+        <h3>Notificações</h3>
+        <ul id="notification-list">
+            <!-- As notificações serão carregadas aqui -->
+        </ul>
+    </div>
 
     <h1 class="tittle">Feed de Posts</h1>
     
@@ -112,6 +127,54 @@ require 'backend/get_all_posts.php'; // Certifique-se de ter essa função imple
     window.location.href = 'post.php?post_id=' + postId; // redireciona para a página post.php com os parâmetros
   });
 });
+
+document.getElementById('notification-button').addEventListener('click', () => {
+            const notificationBox = document.getElementById('notification-box');
+            notificationBox.style.display = notificationBox.style.display === 'block' ? 'none' : 'block';
+
+            loadNotifications(); // Carrega as notificações ao abrir a caixa
+        });
+
+        async function loadNotifications() {
+            try {
+                const response = await fetch('backend/notifications.php', { 
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                const data = await response.json();
+                console.log(data);
+
+                const notificationList = document.getElementById('notification-list');
+
+                notificationList.innerHTML = '';
+
+                data.forEach(notification => {
+                    const notificationItem = document.createElement('li');
+                    notificationItem.textContent = notification.message;
+                    if (!notification.read) {
+                        notificationItem.style.border = '2px solid lightgreen';
+                    } else {
+                        notificationItem.style.color = 'gray';
+                    }
+                    notificationList.appendChild(notificationItem);
+                });
+            } catch (error) {
+                console.error('Erro ao carregar notificações:', error);
+            }
+        }
+
+            const notificationCount = document.getElementById('notificationCount');
+            try{
+                fetch('backend/notifications.php')
+                .then(response => response.json())
+                .then(data => {
+                    notificationCount.textContent = data.length;
+                });
+            } catch (error) {
+                console.error('Erro ao carregar notificações:', error);
+            }
         </script>
     <script src="./frontend/js/scripts.js"></script> <!-- Caminho para o JS -->
 </body>

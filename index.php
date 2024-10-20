@@ -29,7 +29,7 @@
     }
     .form-group label {
       display: block;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
     .form-group input {
       width: 80%;
@@ -37,6 +37,19 @@
       padding: 10px;
       border: 1px solid #ccc;
       border-radius: 5px;
+    }
+    .recover{
+      margin-bottom: 14px;
+    }
+
+    .recover a{
+      text-decoration: none;
+      color: #4CAF50;
+    }
+
+    .recover a:hover{
+      color: #3e8e41;
+      text-decoration: underline;
     }
     .btn-login {
       width: 100%;
@@ -51,6 +64,12 @@
     .btn-login:hover {
       background-color: #3e8e41;
     }
+    @media (min-height: 800px){
+      body{
+        display: block;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -64,6 +83,9 @@
       <div class="form-group">
         <label for="password">Password:</label>
         <input type="password" id="password" name="password" required>
+      </div>
+      <div class="recover">
+        <a href="recupera-senha.php">Esqueci minha senha</a>
       </div>
       <button class="btn-login" type="submit">Login</button>
     </form>

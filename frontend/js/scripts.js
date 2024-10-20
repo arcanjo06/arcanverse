@@ -1,5 +1,4 @@
 
-
 document.querySelectorAll('.like-button').forEach(button => {
 button.addEventListener('click', async function() {
 const postId = this.getAttribute('data-post-id');

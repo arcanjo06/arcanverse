@@ -1,21 +1,30 @@
 <?php
 session_start();
+require 'backend/conexao.php';
+error_reporting(E_ALL & ~E_NOTICE);  // Conexão com o banco de dados
 
-error_reporting(E_ALL & ~E_NOTICE); // Reporta todos os erros, exceto notices
-ini_set('display_errors', 1); // Exibe os erros
+// Função para obter notificações
+function getNotifications($userId) {
+    global $conn;
+    $sql = "SELECT * FROM notifications WHERE user_id = :user_id ORDER BY created_at DESC";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute(['user_id' => $userId]);
 
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+// Verifica se o usuário está autenticado
 if (!isset($_SESSION['username'])) {
     header('Location: index.php');
     exit();
 }
+
 if (!isset($_SESSION['user_id']) || empty($_SESSION['user_id'])) {
     echo "Variável de sessão user_id não definida ou vazia";
     exit();
 }
-
 // Inclui a lógica para obter os posts do usuário
 require 'backend/get_user_posts.php'; // Certifique-se de ter essa função implementada
-
 ?>
 
 <!DOCTYPE html>
@@ -31,11 +40,27 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
     <header>
         <img class="logo" src="images/1.png" alt="logo" width="70px" height="70px">
         <h1 style="font-size:3vw">ARCANVERSE</h1>
-        <button id="feed-button" class="router-btn">Ver Feed</button>
+        <span class="header-right">
+            <div class="notification">
+                <button id="notification-button">
+                    <i class="fas fa-bell"></i>
+                    <span id="notificationCount" class="badge"></span>
+                </button>
+            </div>
+            <button id="feed-button" class="router-btn">Ver Feed</button>
+        </span>
         <button id="logout-button">
             <a href="backend/logout.php">Sair</a>
         </button> 
     </header>
+
+    <!-- Caixa de notificações oculta inicialmente -->
+    <div id="notification-box" class="notification-box">
+        <h3>Notificações</h3>
+        <ul id="notification-list">
+            <!-- As notificações serão carregadas aqui -->
+        </ul>
+    </div>
     
 
     <!-- Seção de Boas-vindas -->
@@ -69,7 +94,7 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
                             $userLiked = true;
                         }
 
-                            // Contagem de likes para este post
+                        // Contagem de likes para este post
                         $sql = "SELECT COUNT(*) AS like_count FROM likes WHERE post_id = :post_id";
                         $stmt = $conn->prepare($sql);
                         $stmt->execute(['post_id' => $post['ID']]);
@@ -82,11 +107,10 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
                         ?>
                     <li class="post-container">
                         <div class="post-header">
-                        <?php
-                        $userId = $post['user_id'];
-                        $userName = getUserNameById($userId);
-                        
-                        ?>
+                            <?php
+                            $userId = $post['user_id'];
+                            $userName = getUserNameById($userId);
+                            ?>
                             <small style="color: gray;">
                                 Postado em: <?php echo date('d/m/Y H:i', strtotime($post['created_at'])); ?>
                                 por:<?php echo $userName; ?>
@@ -95,7 +119,7 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
                         <div class="post-content">
                             <p><?php echo htmlspecialchars($post['content']); ?></p>
                             <div class="post-actions">
-                                <button class="like-button" data-post-id="<?php echo $post_id; ?>">
+                                <button class="like-button" data-post-id="<?php echo $post['ID']; ?>">
                                     <i class="fas fa-heart <?php echo $userLiked ? 'liked' : ''; ?>"></i>
                                     <span class="like-count"><?php echo $likeCount; ?></span> <!-- Exibe a contagem de likes -->
                                 </button>
@@ -106,7 +130,6 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
                             </div>
                             <span id="delete-post-<?php echo $post['ID']; ?>" class="delete-post" data-post-id="<?php echo $post['ID']; ?>" style="color: red; cursor: pointer;">Excluir</span>
                         </div>
-                        
                     </li>
                 <?php endforeach; ?>
             <?php else: ?>
@@ -119,6 +142,54 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
         document.getElementById('feed-button').addEventListener('click', () => {
             window.location.href = 'feed.php'; // Caminho para a página do feed
         });
+        
+        document.getElementById('notification-button').addEventListener('click', () => {
+            const notificationBox = document.getElementById('notification-box');
+            notificationBox.style.display = notificationBox.style.display === 'block' ? 'none' : 'block';
+
+            loadNotifications(); // Carrega as notificações ao abrir a caixa
+        });
+
+        async function loadNotifications() {
+            try {
+                const response = await fetch('backend/notifications.php', { 
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                const data = await response.json();
+                console.log(data);
+
+                const notificationList = document.getElementById('notification-list');
+
+                notificationList.innerHTML = '';
+
+                data.forEach(notification => {
+                    const notificationItem = document.createElement('li');
+                    notificationItem.textContent = notification.message;
+                    if (!notification.read) {
+                        notificationItem.style.border = '2px solid lightgreen';
+                    } else {
+                        notificationItem.style.color = 'gray';
+                    }
+                    notificationList.appendChild(notificationItem);
+                });
+            } catch (error) {
+                console.error('Erro ao carregar notificações:', error);
+            }
+        }
+
+            const notificationCount = document.getElementById('notificationCount');
+            try{
+                fetch('backend/notifications.php')
+                .then(response => response.json())
+                .then(data => {
+                    notificationCount.textContent = data.length;
+                });
+            } catch (error) {
+                console.error('Erro ao carregar notificações:', error);
+            }
 
         document.querySelectorAll('.delete-post').forEach(span => {
             span.addEventListener('click', function() {
@@ -155,18 +226,9 @@ require 'backend/get_user_posts.php'; // Certifique-se de ter essa função impl
             }
         } catch (error) {
             console.error('Erro na requisição:', error);
-            alert('Houve um problema ao tentar excluir o post. Tente novamente mais tarde.');
+            alert('Houve um problema ao tentar excluir o post.');
         }
     }
-
-    document.querySelectorAll('.comment-button').forEach(button => {
-  button.addEventListener('click', function() {
-    const postId = this.getAttribute('data-post-id');
-    console.log(postId);
-    window.location.href = 'post.php?post_id=' + postId; // redireciona para a página post.php com os parâmetros
-  });
-});
-    </script> <!-- Caminho para o JS -->
-    <script src="./frontend/js/scripts.js"></script>
+    </script>
 </body>
 </html>
